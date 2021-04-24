@@ -2,6 +2,7 @@ package buffer
 
 import (
 	"encoding/binary"
+	"errors"
 	"math"
 )
 
@@ -39,6 +40,9 @@ func (b *Bucket) AddPacket(pkt []byte, sn uint16, latest bool) ([]byte, error) {
 			b.step = 0
 		}
 	}
+	if len(pkt) == 0 {
+		return nil, errors.New("empty bytes")
+	}
 	return b.push(pkt), nil
 }
 
@@ -61,14 +65,17 @@ func (b *Bucket) GetPacket(buf []byte, sn uint16) (i int, err error) {
 }
 
 func (b *Bucket) push(pkt []byte) []byte {
-	binary.BigEndian.PutUint16(b.buf[b.step*maxPktSize:], uint16(len(pkt)))
-	off := b.step*maxPktSize + 2
-	copy(b.buf[off:], pkt)
-	b.step++
-	if b.step > b.maxSteps {
-		b.step = 0
+	if len(b.buf) == 0 {
+		binary.BigEndian.PutUint16(b.buf[b.step*maxPktSize:], uint16(len(pkt)))
+		off := b.step*maxPktSize + 2
+		copy(b.buf[off:], pkt)
+		b.step++
+		if b.step > b.maxSteps {
+			b.step = 0
+		}
+		return b.buf[off : off+len(pkt)]
 	}
-	return b.buf[off : off+len(pkt)]
+	return nil
 }
 
 func (b *Bucket) get(sn uint16) []byte {
